@@ -22,7 +22,8 @@ from skimage.morphology import remove_small_objects
 
 from random import shuffle
 import pickle
-from os import path, listdir, makedirs
+from os import path, listdir, makedirs, remove
+from pathlib import Path
 
 
 def remove_large_objects(ar, max_size):
@@ -76,15 +77,28 @@ def log(m, f):
     print(m)
 
 force = False
-for fname in shuffle_ret(listdir(base_dir)): #[e for e in listdir(base_dir) if "545" in e]:#listdir(base_dir): #[e for e in listdir(base_dir) if e.startswith("522")]:
+exp_dirs = listdir(base_dir)
+for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_dir) if "545" in e]:#listdir(base_dir): #[e for e in listdir(base_dir) if e.startswith("522")]:
     if not fname.endswith(".tif"):
-        print("Skipped: " + fname + " not a .tif file")
+        print("Skipped[{}/{}]: {} is not a .tif file"
+              .format(fname, cnt+1, len(exp_dirs)))
         continue
-    print("Processing: " + fname)
 
     out_exp_dir = path.join(out_dir, fname)
     if not path.isdir(out_exp_dir):
         makedirs(out_exp_dir)
+
+    if path.isfile(path.join(out_exp_dir, ".lock")):
+        print("Skipped[{}/{}] {}: found lock file"
+              .format(cnt+1, len(exp_dirs), fname))
+        continue
+
+    print("Processing[{}/{}]: {}".format(cnt+1, len(exp_dirs), fname))
+
+
+    #Put a lock on this analysis so that if multiple processings
+    # happen in parallel they don't overlap
+    Path(path.join(out_exp_dir, ".lock")).touch()
 
     logf = open(path.join(out_exp_dir, "log.txt"), 'w')
 
@@ -272,6 +286,9 @@ for fname in shuffle_ret(listdir(base_dir)): #[e for e in listdir(base_dir) if "
         del clusts_neurons
 
     logf.close()
+    #analysis is done, remove lock file
+    remove(path.join(out_exp_dir, ".lock"))
+
     del imgs
 
 print("DONE")
