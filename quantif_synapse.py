@@ -55,15 +55,14 @@ out_dir = "/mnt/data/mosab/analysis/batch{}/{}".format(batch, syn_type)
 chan_names = {"inhib": {0: "pv", 1: "geph", 2: "vgat"},
               "excit": {0: "pv", 1: "psd95", 2: "vglut"}}
 
-default_params = {"inhib": {"ths": [0.1, 0.6, 0.6],
-                            "sigmas": [0.1, 0.1, 0.1]},
-                  "excit": {"ths": [0.1, 0.6, 0.6],
-                            "sigmas": [0.1, 0.1, 0.1]}}
+default_sigmas = {"inhib": [0.1, 0.1, 0.1],
+                  "excit": [0.1, 0.1, 0.1]}
 
 
 intens_range = list([0.1 + k * 0.02 for k in range(44)])
-min_syn_marker_size = 15
-max_syn_marker_size = 300
+#previous: 15, 100
+min_syn_marker_size = 50
+max_syn_marker_size = 150
 n_syn_marker_it = 30
 
 print("Processing: batch{}: {}".format(batch, syn_type))
@@ -95,7 +94,6 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_di
 
     print("Processing[{}/{}]: {}".format(cnt+1, len(exp_dirs), fname))
 
-
     #Put a lock on this analysis so that if multiple processings
     # happen in parallel they don't overlap
     Path(path.join(out_exp_dir, ".lock")).touch()
@@ -106,7 +104,7 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_di
     img_shape = (imgs.shape[0],) + imgs.shape[2:]
 
     ths = [None, None, None]
-    sigmas = default_params[syn_type]["sigmas"]
+    sigmas = default_sigmas[syn_type]
 
     labs_props = [None, None, None]
     ran = [False, False, False]
@@ -260,7 +258,7 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_di
                 cent = mean(pxs, axis=0)
                 rad = e.equivalent_diameter/2
 
-                clusts[name].append(array([e.label, cent[0], cent[1], cent[2], rad]))
+                clusts[name].append(array([e.label, cent[0], cent[1], cent[2], rad, pxs.shape[0]]))
                 clust_pxs = set([ravel_multi_index(f, img_shape) for f in e.coords])
                 clusts_neurons[name].extend([[e.label, l] for l in labs_0_set if
                                             clust_pxs & labs_0_pxs[l] != set([])])
@@ -278,7 +276,12 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_di
 
 
         with open(path.join(out_exp_dir, "clusts.pkl"), "wb") as f:
-            pickle.dump({name1: clusts[name1], "{}_neurons".format(name1): clusts_neurons[name1],
+            pickle.dump({"sigmas": default_sigmas[syn_type],
+                         "intensities": intens_range,
+                         "min_syn_marker_size": min_syn_marker_size,
+                         "max_syn_marker_size": max_syn_marker_size,
+                         "n_syn_marker_it": n_syn_marker_it,
+                         name1: clusts[name1], "{}_neurons".format(name1): clusts_neurons[name1],
                          name2: clusts[name2], "{}_neurons".format(name2): clusts_neurons[name2],
                          'overlap': overlap}, f)   #, 'near_neighb': near_neighb}, f)
         del overlap
