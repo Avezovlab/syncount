@@ -21,18 +21,16 @@ def log(m, f):
     f.write(m + "\n")
     print(m)
 
-#Bologna4_Inhibitory_509.lif - 509_Field1_Right.tif -> no clear synapses
-
 chan_names = {"inhib": {0: "pv", 1: "geph", 2: "vgat"},
               "excit": {0: "pv", 1: "psd95", 2: "vglut"}}
 
-#batch = 2
-batch = 3
+batch = 1 #batch number
+neur_type = "excit" #or "inhib"
+in_base_dir = "C:/pierre/analysis" #This corresponds to the
+                                   #out_base_dir of the
+                                   #quantif_synapse.py script
 
-#neur_type = "inhib"
-neur_type = "excit"
-
-base_dir = "/mnt/data/mosab/analysis/batch{}/{}".format(batch, neur_type)
+base_dir = "{}/batch{}/{}".format(in_base_dir, batch, neur_type)
 
 dirs = listdir(base_dir)
 nsynapses = {}

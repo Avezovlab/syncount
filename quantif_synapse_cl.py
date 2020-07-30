@@ -34,25 +34,23 @@ def remove_large_objects(ar, max_size):
     return ar
 
 
-#"C:/pierre/data"
-in_base_dir =  "/mnt/data/mosab/data" #replace by the path to the folder
-#containing the data
 
-#C:/pierre/analysis
-out_base_dir = "/tmp/a" #replace by the path to the folder
-                                    #where you want the output files
-                                    #to be generated
-batch = 1 #replace batch number here
-syn_type = "excit" #or "inhib"
-generate_RGB = False #whether or not to generate RGB images of
-                     #detected synapses
-force = False #re-run already generated files
+parser = argparse.ArgumentParser(description="Detect synapses")
 
+parser.add_argument("--no-RGB", action="store_true",
+                    help="do not generate and save RGB images", dest="noRGB")
+parser.add_argument("batch")
+parser.add_argument("syn_type")
 
+args = parser.parse_args()
+
+batch = int(args.batch)
+syn_type = args.syn_type
 assert(syn_type in ["excit", "inhib"])
 
-base_dir = "{}/batch{}/{}".format(in_base_dir, batch, syn_type)
-out_dir = "{}/batch{}/{}".format(out_base_dir, batch, syn_type)
+
+base_dir = "/mnt/data/mosab/data/batch{}/{}".format(batch, syn_type)
+out_dir = "/mnt/data/mosab/analysis/batch{}/{}".format(batch, syn_type)
 
 chan_names = {"inhib": {0: "pv", 1: "geph", 2: "vgat"},
               "excit": {0: "pv", 1: "psd95", 2: "vglut"}}
@@ -62,7 +60,7 @@ default_sigmas = {"inhib": [0.1, 0.1, 0.1],
 
 
 intens_range = list([0.1 + k * 0.02 for k in range(44)])
-
+#previous: 15, 100
 min_syn_marker_size = 50
 max_syn_marker_size = 150
 n_syn_marker_it = 30
@@ -77,8 +75,9 @@ def log(m, f):
     f.write(m + "\n")
     print(m)
 
+force = False
 exp_dirs = listdir(base_dir)
-for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
+for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_dir) if "545" in e]:#listdir(base_dir): #[e for e in listdir(base_dir) if e.startswith("522")]:
     if not fname.endswith(".tif"):
         print("Skipped[{}/{}]: {} is not a .tif file"
               .format(fname, cnt+1, len(exp_dirs)))
@@ -111,8 +110,7 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
     ran = [False, False, False]
 
     log("Labeling", logf)
-    chan_file = path.join(out_exp_dir, "labs_{}.tif"
-                          .format(chan_names[syn_type][0]))
+    chan_file = path.join(out_exp_dir, "labs_{}.tif".format(chan_names[syn_type][0]))
     if not force and path.isfile(chan_file):
         labs = imread(chan_file)
     else:
@@ -121,25 +119,19 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
         imgs_0 = gaussian(imgs[:,0,:,:], sigma=sigmas[0])
         M = max(imgs_0.flatten())
 
-        labs_0 = remove_small_objects(label(imgs_0 > intens_range[0] * M),
-                                      min_size=5000, in_place=True)
+        labs_0 = remove_small_objects(label(imgs_0 > intens_range[0] * M), min_size=5000, in_place=True)
         labs_0 = remove_large_objects(labs_0, 300000)
         props = regionprops(labs_0)
         best_area = mean([e.area for e in props])
         best_labs = array(labs_0)
         best_th = intens_range[0] * M
-        log("   {}% ({:.2f}): {} (area={:.3f})"
-            .format(int(intens_range[0]*100), intens_range[0]*M, len(props),
-                    best_area), logf)
+        log("   {}% ({:.2f}): {} (area={:.3f})".format(int(intens_range[0]*100), intens_range[0]*M, len(props), best_area), logf)
         for cnt in range(1, len(intens_range)):
-            labs_0 = remove_small_objects(label(imgs_0 > intens_range[cnt] * M),
-                                          min_size=5000, in_place=True)
+            labs_0 = remove_small_objects(label(imgs_0 > intens_range[cnt] * M), min_size=5000, in_place=True)
             labs_0 = remove_large_objects(labs_0, 300000)
             props = regionprops(labs_0)
             cur_area = mean([e.area for e in props])
-            log("   {}% ({:.2f}): {} (area={:.3f})"
-                .format(int(intens_range[cnt]*100), intens_range[cnt]*M,
-                        len(props), cur_area), logf)
+            log("   {}% ({:.2f}): {} (area={:.3f})".format(int(intens_range[cnt]*100), intens_range[cnt]*M, len(props), cur_area), logf)
             if isnan(best_area) or cur_area > best_area:
                 best_area = cur_area
                 best_labs = array(labs_0)
@@ -150,16 +142,14 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
     labs_props[0] = regionprops(labs)
     log("    Found {} Neurons".format(len(labs_props[0])), logf)
 
-    if generate_RGB:
-        col_file = path.join(out_exp_dir, "labs_{}_col.tif"
-                             .format(chan_names[syn_type][0]))
+    if not args.noRGB:
+        col_file = path.join(out_exp_dir, "labs_{}_col.tif".format(chan_names[syn_type][0]))
         if force or not path.isfile(col_file):
-            imsave(col_file,
-                   label2rgb(labs, bg_label=0, colors=[[randint(255), randint(255), randint(255)] for i in range(len(labs_props[0]))]).astype('uint8'))
+            imsave(col_file, label2rgb(labs, bg_label=0,
+                                       colors=[[randint(255), randint(255), randint(255)] for i in range(len(labs_props[0]))]).astype('uint8'))
     del labs
 
-    chan_file = path.join(out_exp_dir, "labs_{}.tif"
-                          .format(chan_names[syn_type][1]))
+    chan_file = path.join(out_exp_dir, "labs_{}.tif".format(chan_names[syn_type][1]))
     if not force and path.isfile(chan_file):
         labs = imread(chan_file)
     else:
@@ -168,23 +158,18 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
         imgs_1 = gaussian(imgs[:,1,:,:], sigma=sigmas[1])
         M = max(imgs_1.flatten())
 
-        labs_1 = remove_small_objects(label(imgs_1 > intens_range[-1] * M),
-                                      min_size=min_syn_marker_size, in_place=True)
+        labs_1 = remove_small_objects(label(imgs_1 > intens_range[-1] * M), min_size=min_syn_marker_size, in_place=True)
         labs_1 = remove_large_objects(labs_1, max_syn_marker_size)
         props = regionprops(labs_1)
         max_clusts = len(props)
         best_labs = array(labs_1)
         best_th = intens_range[-1] * M
-        log("   {}% ({:.2f}): {}".format(int(intens_range[-1]*100),
-                                         intens_range[-1]*M, len(props)), logf)
+        log("   {}% ({:.2f}): {}".format(int(intens_range[-1]*100), intens_range[-1]*M, len(props)), logf)
         for cnt in range(len(intens_range)-2, -1, -1):
-            labs_1 = remove_small_objects(label(imgs_1 > intens_range[cnt] * M),
-                                          min_size=min_syn_marker_size, in_place=True)
+            labs_1 = remove_small_objects(label(imgs_1 > intens_range[cnt] * M), min_size=min_syn_marker_size, in_place=True)
             labs_1 = remove_large_objects(labs_1, max_syn_marker_size)
             props = regionprops(labs_1)
-            log("   {}% ({:.2f}): {}"
-                .format(int(intens_range[cnt]*100), intens_range[cnt]*M,
-                        len(props)), logf)
+            log("   {}% ({:.2f}): {}".format(int(intens_range[cnt]*100), intens_range[cnt]*M, len(props)), logf)
             if len(props) > max_clusts:
                 max_clusts = len(props)
                 best_labs = array(labs_1)
@@ -193,19 +178,16 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
         ths[1] = best_th
         imsave(chan_file, labs.astype("uint16"))
     labs_props[1] = regionprops(labs)
-    log("    Found {} {} clusters"
-        .format(len(labs_props[1]), chan_names[syn_type][1]), logf)
+    log("    Found {} {} clusters".format(len(labs_props[1]), chan_names[syn_type][1]), logf)
 
-    if generate_RGB:
-        col_file = path.join(out_exp_dir, "labs_{}_col.tif"
-                             .format(chan_names[syn_type][1]))
+    if not args.noRGB:
+        col_file = path.join(out_exp_dir, "labs_{}_col.tif".format(chan_names[syn_type][1]))
         if force or not path.isfile(col_file):
             imsave(col_file, label2rgb(labs, bg_label=0,
                                        colors=[[randint(255), randint(255), randint(255)] for i in range(len(labs_props[1]))]).astype('uint8'))
     del labs
 
-    chan_file = path.join(out_exp_dir, "labs_{}.tif"
-                          .format(chan_names[syn_type][2]))
+    chan_file = path.join(out_exp_dir, "labs_{}.tif".format(chan_names[syn_type][2]))
     if not force and path.isfile(chan_file):
         labs = imread(chan_file)
     else:
@@ -214,23 +196,18 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
         imgs_2 = gaussian(imgs[:,2,:,:], sigma=sigmas[2])
         M= max(imgs_2.flatten())
 
-        labs_2 = remove_small_objects(label(imgs_2 > intens_range[-1] * M),
-                                      min_size=min_syn_marker_size, in_place=True)
+        labs_2 = remove_small_objects(label(imgs_2 > intens_range[-1] * M), min_size=min_syn_marker_size, in_place=True)
         labs_2 = remove_large_objects(labs_2, max_syn_marker_size)
         props = regionprops(labs_2)
         max_clusts = len(props)
         best_labs = labs_2
         best_th = intens_range[-1] * M
-        log("   {}% ({:.2f}): {}".format(int(intens_range[-1]*100),
-                                         intens_range[-1]*M, len(props)), logf)
+        log("   {}% ({:.2f}): {}".format(int(intens_range[-1]*100), intens_range[-1]*M, len(props)), logf)
         for cnt in range(len(intens_range)-2, -1, -1):
-            labs_2 = remove_small_objects(label(imgs_2 > intens_range[cnt] * M),
-                                          min_size=min_syn_marker_size, in_place=True)
+            labs_2 = remove_small_objects(label(imgs_2 > intens_range[cnt] * M), min_size=min_syn_marker_size, in_place=True)
             labs_2 = remove_large_objects(labs_2, max_syn_marker_size)
             props = regionprops(labs_2)
-            log("   {}% ({:.2f}): {}"
-                .format(int(intens_range[cnt]*100), intens_range[cnt]*M,
-                        len(props)), logf)
+            log("   {}% ({:.2f}): {}".format(int(intens_range[cnt]*100), intens_range[cnt]*M, len(props)), logf)
             if len(props) > max_clusts:
                 max_clusts = len(props)
                 best_labs = array(labs_2)
@@ -239,12 +216,10 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
         ths[2] = best_th
         imsave(chan_file, labs.astype("uint16"))
     labs_props[2] = regionprops(labs)
-    log("    Found {} {} clusters"
-        .format(len(labs_props[2]), chan_names[syn_type][2]), logf)
+    log("    Found {} {} clusters".format(len(labs_props[2]), chan_names[syn_type][2]), logf)
 
-    if generate_RGB:
-        col_file = path.join(out_exp_dir, "labs_{}_col.tif"
-                             .format(chan_names[syn_type][2]))
+    if not args.noRGB:
+        col_file = path.join(out_exp_dir, "labs_{}_col.tif".format(chan_names[syn_type][2]))
         if force or not path.isfile(col_file):
             imsave(col_file, label2rgb(labs, bg_label=0,
                                        colors=[[randint(255), randint(255), randint(255)] for i in range(len(labs_props[2]))]).astype('uint8'))
@@ -268,8 +243,7 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
         log("Finding synapses", logf)
 
         labs_0_set = [e.label for e in labs_props[0]]
-        labs_0_pxs = {e.label:set([ravel_multi_index(f, img_shape)
-                                   for f in e.coords])
+        labs_0_pxs = {e.label:set([ravel_multi_index(f, img_shape) for f in e.coords])
                         for e in labs_props[0]}
 
         clusts = {}
@@ -284,10 +258,8 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
                 cent = mean(pxs, axis=0)
                 rad = e.equivalent_diameter/2
 
-                clusts[name].append(array([e.label, cent[0], cent[1], cent[2],
-                                           rad, pxs.shape[0]]))
-                clust_pxs = set([ravel_multi_index(f, img_shape)
-                                 for f in e.coords])
+                clusts[name].append(array([e.label, cent[0], cent[1], cent[2], rad, pxs.shape[0]]))
+                clust_pxs = set([ravel_multi_index(f, img_shape) for f in e.coords])
                 clusts_neurons[name].extend([[e.label, l] for l in labs_0_set if
                                             clust_pxs & labs_0_pxs[l] != set([])])
 

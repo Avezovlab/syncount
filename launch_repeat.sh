@@ -9,6 +9,6 @@ fi
 
 ret=1
 while [[ ! $ret -eq 0 ]]; do
-    python3 quantif_synapse.py --no-RGB $1 $2
+    python3 quantif_synapse.py_cl --no-RGB $1 $2
     ret=$?
 done
