@@ -37,6 +37,9 @@ def remove_large_objects(ar, max_size):
 
 parser = argparse.ArgumentParser(description="Detect synapses")
 
+parser.add_argument("--process-only", type=str,
+                    help="part of name to recognize files to process",
+                    dest="filter", default=None)
 parser.add_argument("--no-RGB", action="store_true",
                     help="do not generate and save RGB images", dest="noRGB")
 parser.add_argument("batch")
@@ -60,9 +63,13 @@ default_sigmas = {"inhib": [0.1, 0.1, 0.1],
 
 
 intens_range = list([0.1 + k * 0.02 for k in range(44)])
+
+min_neur_marker_size = 5000
+max_neur_marker_size = 300000
+
 #previous: 15, 100
-min_syn_marker_size = 50
-max_syn_marker_size = 150
+min_syn_marker_size = 15#50
+max_syn_marker_size = 300#150
 n_syn_marker_it = 30
 
 print("Processing: batch{}: {}".format(batch, syn_type))
@@ -80,7 +87,12 @@ exp_dirs = listdir(base_dir)
 for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_dir) if "545" in e]:#listdir(base_dir): #[e for e in listdir(base_dir) if e.startswith("522")]:
     if not fname.endswith(".tif"):
         print("Skipped[{}/{}]: {} is not a .tif file"
-              .format(fname, cnt+1, len(exp_dirs)))
+              .format(cnt+1, len(exp_dirs), fname))
+        continue
+
+    if args.filter is not None and args.filter not in fname:
+        print("Skipped[{}/{}]: {} filtered out on name"
+              .format(cnt+1, len(exp_dirs), fname))
         continue
 
     out_exp_dir = path.join(out_dir, fname)
@@ -119,16 +131,16 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_di
         imgs_0 = gaussian(imgs[:,0,:,:], sigma=sigmas[0])
         M = max(imgs_0.flatten())
 
-        labs_0 = remove_small_objects(label(imgs_0 > intens_range[0] * M), min_size=5000, in_place=True)
-        labs_0 = remove_large_objects(labs_0, 300000)
+        labs_0 = remove_small_objects(label(imgs_0 > intens_range[0] * M), min_size=min_neur_marker_size, in_place=True)
+        labs_0 = remove_large_objects(labs_0, max_neur_marker_size)
         props = regionprops(labs_0)
         best_area = mean([e.area for e in props])
         best_labs = array(labs_0)
         best_th = intens_range[0] * M
         log("   {}% ({:.2f}): {} (area={:.3f})".format(int(intens_range[0]*100), intens_range[0]*M, len(props), best_area), logf)
         for cnt in range(1, len(intens_range)):
-            labs_0 = remove_small_objects(label(imgs_0 > intens_range[cnt] * M), min_size=5000, in_place=True)
-            labs_0 = remove_large_objects(labs_0, 300000)
+            labs_0 = remove_small_objects(label(imgs_0 > intens_range[cnt] * M), min_size=min_neur_marker_size, in_place=True)
+            labs_0 = remove_large_objects(labs_0, max_neur_marker_size)
             props = regionprops(labs_0)
             cur_area = mean([e.area for e in props])
             log("   {}% ({:.2f}): {} (area={:.3f})".format(int(intens_range[cnt]*100), intens_range[cnt]*M, len(props), cur_area), logf)
@@ -232,6 +244,13 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_di
         params = {}
 
     if params == {} or any(ran):
+        params["intensities"] = intens_range
+        params["min_neur_marker_size"] = min_neur_marker_size
+        params["max_neur_marker_size"] = max_neur_marker_size
+        params["min_syn_marker_size"] = min_syn_marker_size
+        params["max_syn_marker_size"] = max_syn_marker_size
+        params["n_syn_marker_it"] = n_syn_marker_it
+
         for k in range(3):
             if ran[k]:
                 params["th_{}".format(chan_names[syn_type][k])] = ths[k]
@@ -276,12 +295,7 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)): #[e for e in listdir(base_di
 
 
         with open(path.join(out_exp_dir, "clusts.pkl"), "wb") as f:
-            pickle.dump({"sigmas": default_sigmas[syn_type],
-                         "intensities": intens_range,
-                         "min_syn_marker_size": min_syn_marker_size,
-                         "max_syn_marker_size": max_syn_marker_size,
-                         "n_syn_marker_it": n_syn_marker_it,
-                         name1: clusts[name1], "{}_neurons".format(name1): clusts_neurons[name1],
+            pickle.dump({name1: clusts[name1], "{}_neurons".format(name1): clusts_neurons[name1],
                          name2: clusts[name2], "{}_neurons".format(name2): clusts_neurons[name2],
                          'overlap': overlap}, f)   #, 'near_neighb': near_neighb}, f)
         del overlap
