@@ -24,9 +24,9 @@ def log(m, f):
 chan_names = {"inhib": {0: "pv", 1: "geph", 2: "vgat"},
               "excit": {0: "pv", 1: "psd95", 2: "vglut"}}
 
-batch = 4 #batch number
+batch = 1 #batch number
 neur_type = "inhib"#excit" #or "inhib"
-in_base_dir = "/mnt/data/mosab/analysis/" #This corresponds to the
+in_base_dir = "/mnt/data2/mosab/analysis/" #"/mnt/data/mosab/analysis2/" #This corresponds to the
                                    #out_base_dir of the
                                    #quantif_synapse.py script
 
@@ -51,6 +51,9 @@ for i in range(len(dirs)):
         print("Missing " + cur_path)
         continue
 
+    print("Loading {}/{}: {}".format(i, len(dirs), fname))
+
+
     with open(path.join(cur_path, "clusts.pkl"), 'rb') as f:
         ana = pickle.load(f)
 
@@ -63,26 +66,26 @@ for i in range(len(dirs)):
     nsynapses[cat].append(len(ana["overlap"]))
     nclusts[0][cat].append(len(ana[chan_names[neur_type][1]]))
     nclusts[1][cat].append(len(ana[chan_names[neur_type][2]]))
-    clust_sizes[0][cat].extend([e[4] for e in ana[chan_names[neur_type][1]]])
-    clust_sizes[1][cat].extend([e[4] for e in ana[chan_names[neur_type][2]]])
+#    clust_sizes[0][cat].extend([e[4] for e in ana[chan_names[neur_type][1]]])
+#    clust_sizes[1][cat].extend([e[4] for e in ana[chan_names[neur_type][2]]])
 
-cats = sorted(clust_sizes[0].keys(), key=lambda e: int(e))
+cats = sorted(nsynapses.keys(), key=lambda e: int(e[2:]))
 
 
-print("Cluster Sizes:")
-plt.figure(figsize=(10,10))
-for cat in cats:
-    v = clust_sizes[0][cat]
-    print("{}/{}: {} ± {}".format(cat, chan_names[neur_type][0], mean(v), std(v)))
-    o, b = histogram(v, bins=[1+i*0.05 for i in range(0, 100)])
-    plt.plot(b[:-1], o / sum(o))
-for cat in cats:
-    v = clust_sizes[1][cat]
-    print("{}/{}: {} ± {}".format(cat, chan_names[neur_type][1], mean(v), std(v)))
-    o, b = histogram(v, bins=[1+i*0.05 for i in range(0, 100)])
-    plt.plot(b[:-1], o / sum(o), '--')
-plt.xlabel('Cluster radius')
-plt.ylabel('Frequency')
+#print("Cluster Sizes:")
+#plt.figure(figsize=(10,10))
+#for cat in cats:
+#    v = clust_sizes[0][cat]
+#    print("{}/{}: {} ± {}".format(cat, chan_names[neur_type][0], mean(v), std(v)))
+#    o, b = histogram(v, bins=[1+i*0.05 for i in range(0, 100)])
+#    plt.plot(b[:-1], o / sum(o))
+#for cat in cats:
+#    v = clust_sizes[1][cat]
+#    print("{}/{}: {} ± {}".format(cat, chan_names[neur_type][1], mean(v), std(v)))
+#    o, b = histogram(v, bins=[1+i*0.05 for i in range(0, 100)])
+#    plt.plot(b[:-1], o / sum(o), '--')
+#plt.xlabel('Cluster radius')
+#plt.ylabel('Frequency')
 
 print()
 logf = open("/tmp/batch{}_{}_quantif.txt".format(batch, neur_type), "w")

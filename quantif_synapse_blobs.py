@@ -12,6 +12,7 @@ from numpy import array, mean, min, argmin, NaN, isnan, arange
 from numpy import ravel_multi_index, bincount
 from numpy.random import randint
 from scipy.spatial.distance import cdist
+from skimage.feature import blob_log
 
 
 from skimage.external.tifffile import imread, imsave
@@ -35,7 +36,7 @@ def remove_large_objects(ar, max_size):
 
 
 #"C:/pierre/data"
-in_base_dir =  "/mnt/data2/mosab/data" #replace by the path to the folder
+in_base_dir =  "/mnt/data/mosab/data" #replace by the path to the folder
 #containing the data
 
 #C:/pierre/analysis
@@ -115,7 +116,7 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
                           .format(chan_names[syn_type][0]))
     if not force and path.isfile(chan_file):
         labs = imread(chan_file)
-    else:
+    elif False: #else
         log("  " + chan_names[syn_type][0], logf)
         ran[0] = True
         imgs_0 = gaussian(imgs[:,0,:,:], sigma=sigmas[0])
@@ -147,8 +148,8 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
         labs = best_labs
         ths[0] = best_th
         imsave(chan_file, labs.astype("uint16"))
-    labs_props[0] = regionprops(labs)
-    log("    Found {} Neurons".format(len(labs_props[0])), logf)
+    #labs_props[0] = regionprops(labs)
+    #log("    Found {} Neurons".format(len(labs_props[0])), logf)
 
     if generate_RGB:
         col_file = path.join(out_exp_dir, "labs_{}_col.tif"
@@ -156,7 +157,7 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
         if force or not path.isfile(col_file):
             imsave(col_file,
                    label2rgb(labs, bg_label=0, colors=[[randint(255), randint(255), randint(255)] for i in range(len(labs_props[0]))]).astype('uint8'))
-    del labs
+    #del labs
 
     chan_file = path.join(out_exp_dir, "labs_{}.tif"
                           .format(chan_names[syn_type][1]))
@@ -165,8 +166,15 @@ for cnt, fname in enumerate(shuffle_ret(exp_dirs)):
     else:
         log("  " + chan_names[syn_type][1], logf)
         ran[1] = True
+
+        blbs = blob_log(imgs[:,1,:,:], max_sigma=10, threshold=mean(imgs[:,1,:,:].flatten())/2)
+
+
+        assert(False)
         imgs_1 = gaussian(imgs[:,1,:,:], sigma=sigmas[1])
         M = max(imgs_1.flatten())
+
+
 
         labs_1 = remove_small_objects(label(imgs_1 > intens_range[-1] * M),
                                       min_size=min_syn_marker_size, in_place=True)
