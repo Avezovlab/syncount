@@ -24,11 +24,13 @@ def log(m, f):
 chan_names = {"inhib": {0: "pv", 1: "geph", 2: "vgat"},
               "excit": {0: "pv", 1: "psd95", 2: "vglut"}}
 
-batch = 1 #batch number
-neur_type = "inhib"#excit" #or "inhib"
-in_base_dir = "/mnt/data2/mosab/analysis/" #"/mnt/data/mosab/analysis2/" #This corresponds to the
+batch = 4 #batch number
+neur_type = "excit" #excit" #or "inhib"
+in_base_dir = "/mnt/data/mosab/analysis3" #"/mnt/data/mosab/analysis2/" #This corresponds to the
                                    #out_base_dir of the
                                    #quantif_synapse.py script
+f_th = 1.5
+soma = "soma_f=1_overlap_f={}".format(f_th)
 
 base_dir = "{}/batch{}/{}".format(in_base_dir, batch, neur_type)
 
@@ -58,18 +60,31 @@ for i in range(len(dirs)):
         ana = pickle.load(f)
 
     if cat not in nsynapses.keys():
+        if cat.startswith("ID"):
+            cat = cat[2:]
+
         nsynapses[cat] = []
         nclusts[0][cat] = []
         nclusts[1][cat] = []
         clust_sizes[0][cat] = []
         clust_sizes[1][cat] = []
-    nsynapses[cat].append(len(ana["overlap"]))
-    nclusts[0][cat].append(len(ana[chan_names[neur_type][1]]))
-    nclusts[1][cat].append(len(ana[chan_names[neur_type][2]]))
+    if f_th == 1:
+        nsynapses[cat].append(len(ana["overlap"]))
+    elif soma != "":
+        nsynapses[cat].append(len(ana[soma]))
+    else:
+        nsynapses[cat].append(len(ana["overlap_f={}".format(f_th)]))
+
+    if soma != "":
+        nclusts[0][cat].append(len(ana[chan_names[neur_type][1] + "_soma_f=1"]))
+        nclusts[1][cat].append(len(ana[chan_names[neur_type][2] + "_soma_f=1"]))
+    else:
+        nclusts[0][cat].append(len(ana[chan_names[neur_type][1]]))
+        nclusts[1][cat].append(len(ana[chan_names[neur_type][2]]))
 #    clust_sizes[0][cat].extend([e[4] for e in ana[chan_names[neur_type][1]]])
 #    clust_sizes[1][cat].extend([e[4] for e in ana[chan_names[neur_type][2]]])
 
-cats = sorted(nsynapses.keys(), key=lambda e: int(e[2:]))
+cats = sorted(nsynapses.keys(), key=lambda e: int(e))
 
 
 #print("Cluster Sizes:")
@@ -116,7 +131,7 @@ plt.subplot(3, 1, 3)
 plt.bar(range(len(cats)), [mean(nsynapses[cat]) for cat in cats])
 Msyn = 0
 for k,cat in enumerate(cats):
-    log("{}: AVG={:.3f} SEM={:.3f} n={} (values:[{}])".format(cat, mean(nsynapses[cat]), std(nsynapses[cat]), len(nsynapses[cat]), ",".join([str(e) for e in nsynapses[cat]])), logf)
+    log("{}: AVG={:.3f} SEM={:.3f} n={} (values:[{}])".format(cat, mean(nsynapses[cat]), std(nsynapses[cat]) / len(nsynapses[cat]), len(nsynapses[cat]), ",".join([str(e) for e in nsynapses[cat]])), logf)
     plt.plot([k, k], mean(nsynapses[cat]) + std(nsynapses[cat]) / sqrt(len(nsynapses[cat])) * array([-1, 1]), 'black')
     Msyn = max([Msyn, mean(nsynapses[cat])])
 plt.xticks(range(len(cats)), cats)

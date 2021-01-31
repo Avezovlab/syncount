@@ -35,7 +35,7 @@ def remove_large_objects(ar, max_size):
 
 
 #"C:/pierre/data"
-in_base_dir =  "/mnt/data2/mosab/data" #replace by the path to the folder
+in_base_dir =  "/mnt/data/mosab/data" #replace by the path to the folder
 #containing the data
 
 #C:/pierre/analysis
