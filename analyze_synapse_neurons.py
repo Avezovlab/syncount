@@ -5,15 +5,12 @@ Created on Tue Jun  2 13:38:06 2020
 
 @author: pierre
 """
-from numpy import zeros, array, mean, std, where, sum, sqrt, min, max, argmin, histogram
+from numpy import array, mean, std, sqrt, max
 
 from matplotlib import pyplot as plt
-from math import ceil
 
-from collections import Counter
-from numpy.random import randint
 
-from os import path, listdir, makedirs
+from os import path, listdir
 
 import pickle
 
@@ -26,11 +23,14 @@ chan_names = {"inhib": {0: "pv", 1: "geph", 2: "vgat"},
 
 batch = 4 #batch number
 neur_type = "excit" #excit" #or "inhib"
-in_base_dir = "/mnt/data/mosab/analysis3" #"/mnt/data/mosab/analysis2/" #This corresponds to the
+in_base_dir = "/mnt/nmve/mosab/analysis3_2" #"/mnt/data/mosab/analysis2/" #This corresponds to the
                                    #out_base_dir of the
                                    #quantif_synapse.py script
-f_th = 1.5
-soma = "soma_f=1_overlap_f={}".format(f_th)
+#f_th = 1.5
+#soma = "soma_f=1_overlap_f={}".format(f_th)
+
+f_th = 1
+soma = ""
 
 base_dir = "{}/batch{}/{}".format(in_base_dir, batch, neur_type)
 
@@ -55,25 +55,28 @@ for i in range(len(dirs)):
 
     print("Loading {}/{}: {}".format(i, len(dirs), fname))
 
-
     with open(path.join(cur_path, "clusts.pkl"), 'rb') as f:
         ana = pickle.load(f)
 
-    if cat not in nsynapses.keys():
-        if cat.startswith("ID"):
+    if cat.startswith("ID"):
             cat = cat[2:]
 
+    if cat not in nsynapses.keys():
         nsynapses[cat] = []
         nclusts[0][cat] = []
         nclusts[1][cat] = []
         clust_sizes[0][cat] = []
         clust_sizes[1][cat] = []
+
     if f_th == 1:
         nsynapses[cat].append(len(ana["overlap"]))
     elif soma != "":
+        print(cat)
         nsynapses[cat].append(len(ana[soma]))
     else:
         nsynapses[cat].append(len(ana["overlap_f={}".format(f_th)]))
+
+    nsynapses[cat][-1] /= ana["volume"]
 
     if soma != "":
         nclusts[0][cat].append(len(ana[chan_names[neur_type][1] + "_soma_f=1"]))
@@ -110,7 +113,7 @@ plt.figure(figsize=(10,10))
 plt.subplot(3, 1, 1)
 plt.bar(range(len(cats)), [mean(nclusts[0][cat]) for cat in cats])
 for k,cat in enumerate(cats):
-    log("{}: AVG={:.3f} SEM={:.3f} n={} (values:[{}])".format(cat, mean(nclusts[0][cat]), std(nclusts[0][cat]), len(nclusts[0][cat]), ",".join([str(e) for e in nclusts[0][cat]])), logf)
+    log("{}: AVG={:.6f} SEM={:.6f} n={} (values:[{}])".format(cat, mean(nclusts[0][cat]), std(nclusts[0][cat]) / sqrt(len(nclusts[0][cat])), len(nclusts[0][cat]), ",".join(["{:d}".format(e) for e in nclusts[0][cat]])), logf)
     plt.plot([k, k], mean(nclusts[0][cat]) + std(nclusts[0][cat]) / sqrt(len(nclusts[0][cat])) * array([-1, 1]), 'black')
 plt.xticks(range(len(cats)), cats)
 plt.ylabel('AVG Number of {} clusters'.format(chan_names[neur_type][1]))
@@ -120,23 +123,23 @@ log("Number of {} clusters:".format(chan_names[neur_type][2]), logf)
 plt.subplot(3, 1, 2)
 plt.bar(range(len(cats)), [mean(nclusts[1][cat]) for cat in cats])
 for k,cat in enumerate(cats):
-    log("{}: AVG={:.3f} SEM={:.3f} n={} (values:[{}])".format(cat, mean(nclusts[1][cat]), std(nclusts[1][cat]), len(nclusts[1][cat]), ",".join([str(e) for e in nclusts[1][cat]])), logf)
+    log("{}: AVG={:.6f} SEM={:.6f} n={} (values:[{}])".format(cat, mean(nclusts[1][cat]), std(nclusts[1][cat]) / sqrt(len(nclusts[0][cat])), len(nclusts[1][cat]), ",".join(["{:d}".format(e) for e in nclusts[1][cat]])), logf)
     plt.plot([k, k], mean(nclusts[1][cat]) + std(nclusts[1][cat]) / sqrt(len(nclusts[1][cat])) * array([-1, 1]), 'black')
 plt.xticks(range(len(cats)), cats)
 plt.ylabel('AVG Number of {} clusters'.format(chan_names[neur_type][2]))
 
 log("", logf)
-log("Number of synapses:", logf)
+log("Synapses per μm³:", logf)
 plt.subplot(3, 1, 3)
 plt.bar(range(len(cats)), [mean(nsynapses[cat]) for cat in cats])
 Msyn = 0
 for k,cat in enumerate(cats):
-    log("{}: AVG={:.3f} SEM={:.3f} n={} (values:[{}])".format(cat, mean(nsynapses[cat]), std(nsynapses[cat]) / len(nsynapses[cat]), len(nsynapses[cat]), ",".join([str(e) for e in nsynapses[cat]])), logf)
+    log("{}: AVG={:.6f} SEM={:.6f} n={} (values:[{}])".format(cat, mean(nsynapses[cat]), std(nsynapses[cat]) / sqrt(len(nsynapses[cat])), len(nsynapses[cat]), ",".join(["{:.6f}".format(e) for e in nsynapses[cat]])), logf)
     plt.plot([k, k], mean(nsynapses[cat]) + std(nsynapses[cat]) / sqrt(len(nsynapses[cat])) * array([-1, 1]), 'black')
     Msyn = max([Msyn, mean(nsynapses[cat])])
 plt.xticks(range(len(cats)), cats)
-plt.yticks([e*100 for e in range(int(ceil(Msyn / 100))+1)])
-plt.ylabel('AVG Number of synapses')
+#plt.yticks([e*100 for e in range(int(ceil(Msyn / 100))+1)])
+plt.ylabel('AVG Number of synapses per µm^3')
 plt.savefig("/tmp/batch{}_{}_results.pdf".format(batch, neur_type), bbox_inches='tight',pad_inches = 0)
 
 logf.close()
